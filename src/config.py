@@ -22,4 +22,4 @@ TEXT_COLS = [
 ]
 
 # Search params
-TOP_K = 30
+TOP_K = 10

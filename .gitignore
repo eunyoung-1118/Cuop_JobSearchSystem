@@ -2,6 +2,9 @@
 .venv/
 venv/
 
+#env
+.env
+
 # python
 __pycache__/
 *.pyc
@@ -14,7 +17,9 @@ artifacts/
 
 # data (크롤링 데이터)
 data/
-*.csv
+
+# eval
+eval/eval_dataset.csv 
 
 # OS
 .DS_Store
