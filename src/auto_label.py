@@ -5,14 +5,18 @@ import pandas as pd
 import numpy as np
 from joblib import load
 from scipy import sparse
-from sklearn.metrics.pairwise import cosine_similarity
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
 
 from openai import OpenAI
 
-from config import CSV_PATH, VECTORIZER_PATH, VECTORS_PATH, META_PATH, TEXT_COLS
+from config import (
+    CSV_PATH, META_PATH, TEXT_COLS,
+    VECTORIZER_VEC_PATH, VECTORS_VEC_PATH,
+    VECTORIZER_KW_PATH,  VECTORS_KW_PATH,
+    CANDIDATE_K,
+)
 from utils import normalize_text, safe_read_csv
 
 
@@ -75,7 +79,6 @@ def openai_label(client, query: str, jd_text: str, model: str, sleep_s: float = 
     )
     txt = resp.choices[0].message.content.strip()
 
-    # 숫자 하나만 파싱
     for ch in txt:
         if ch in "012":
             if sleep_s > 0:
@@ -83,6 +86,53 @@ def openai_label(client, query: str, jd_text: str, model: str, sleep_s: float = 
             return int(ch)
 
     raise ValueError(f"LLM output parse failed: {txt}")
+
+
+def topk_indices_from_scores(scores: np.ndarray, k: int) -> np.ndarray:
+    k = min(k, scores.size)
+    if k <= 0:
+        return np.array([], dtype=int)
+    idx = np.argpartition(-scores, kth=k - 1)[:k]
+    idx = idx[np.argsort(-scores[idx])]
+    return idx
+
+
+def cosine_scores(qv, X):
+    # TF-IDF 기본 norm='l2'라 dot == cosine
+    return (X @ qv.T).toarray().ravel()
+
+
+def hybrid_retrieve_indices(
+    query: str,
+    top_n: int,
+    vectorizer_kw, X_kw,
+    vectorizer_vec, X_vec,
+    candidate_k: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    return:
+      top_idx: 원본 문서 인덱스 (len=top_n)
+      top_scores: 2차(char) 점수 (len=top_n)
+    """
+    qn = normalize_text(query)
+
+    # 1차: word 후보
+    q_kw = vectorizer_kw.transform([qn])
+    kw_scores = cosine_scores(q_kw, X_kw)
+    cand_idx = topk_indices_from_scores(kw_scores, candidate_k)
+
+    if cand_idx.size == 0:
+        return np.array([], dtype=int), np.array([], dtype=float)
+
+    # 2차: char rerank
+    q_vec = vectorizer_vec.transform([qn])
+    X_cand = X_vec[cand_idx]
+    vec_scores = cosine_scores(q_vec, X_cand)
+
+    top_local = topk_indices_from_scores(vec_scores, top_n)
+    top_idx = cand_idx[top_local]
+    top_scores = vec_scores[top_local]
+    return top_idx, top_scores
 
 
 def main():
@@ -96,13 +146,16 @@ def main():
     ap.add_argument("--resume", action="store_true", help="중간에 끊겨도 이어서 실행")
     args = ap.parse_args()
 
-    # API 키 확인
     require_api_key()
     client = OpenAI()
 
-    # artifacts 로드
-    vectorizer = load(VECTORIZER_PATH)
-    X = sparse.load_npz(VECTORS_PATH)
+    # artifacts 로드 (v0.2)
+    vectorizer_kw = load(VECTORIZER_KW_PATH)
+    X_kw = sparse.load_npz(VECTORS_KW_PATH)
+
+    vectorizer_vec = load(VECTORIZER_VEC_PATH)
+    X_vec = sparse.load_npz(VECTORS_VEC_PATH)
+
     meta = pd.read_parquet(META_PATH)
 
     # 쿼리 로드
@@ -126,19 +179,22 @@ def main():
                 done.add((str(r["qid"]), str(r["posting_id"])))
         print(f"[RESUME] loaded {len(prev)} rows, done={len(done)}")
 
-    # (posting_id, query)별 캐시: 같은 공고가 여러 번 나오면 비용 줄임
     label_cache = {}
 
     for _, qr in qdf.iterrows():
         qid = str(qr["qid"])
         query = str(qr["query"])
 
-        qv = vectorizer.transform([normalize_text(query)])
-        scores = cosine_similarity(qv, X).ravel()
-        top_idx = np.argsort(-scores)[: args.top_n]
+        top_idx, top_scores = hybrid_retrieve_indices(
+            query=query,
+            top_n=args.top_n,
+            vectorizer_kw=vectorizer_kw, X_kw=X_kw,
+            vectorizer_vec=vectorizer_vec, X_vec=X_vec,
+            candidate_k=CANDIDATE_K,
+        )
 
-        for rank, idx in enumerate(top_idx, start=1):
-            m = meta.iloc[idx].to_dict() if idx < len(meta) else {"row_index": idx}
+        for rank, (idx, score2) in enumerate(zip(top_idx, top_scores), start=1):
+            m = meta.iloc[idx].to_dict() if idx < len(meta) else {"row_index": int(idx)}
             posting_id = m.get("posting_id", m.get("row_index", idx))
             key = (qid, str(posting_id))
 
@@ -171,11 +227,10 @@ def main():
                 "query": query,
                 "rank": rank,
                 "posting_id": posting_id,
-                "score": float(scores[idx]),
+                "score": float(score2),   # 2차(char) 점수 저장
                 "relevance": int(rel),
             })
 
-        # 중간 저장
         pd.DataFrame(rows).to_csv(args.out, index=False, encoding="utf-8-sig")
 
     print(f"[OK] Saved eval dataset: {args.out} (rows={len(rows)})")

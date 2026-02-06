@@ -67,5 +67,5 @@ python src/evaluate.py
 - nDCG@10
 
 ## Current Status
-- Version: v0.1 (TF-IDF Search System)
+- Version: v0.2 — Hybrid TF-IDF Search
 - Evaluation: 진행 완료

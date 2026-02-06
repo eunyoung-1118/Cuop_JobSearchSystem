@@ -1,15 +1,16 @@
 from pathlib import Path
 
 # Paths
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DATA_DIR = PROJECT_ROOT / "data"
-ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
+ARTIFACTS_DIR = Path("artifacts")
+CSV_PATH = Path("data/jobs_merged.csv")
 
-CSV_PATH = DATA_DIR / "jobs_merged.csv"
+VECTORIZER_VEC_PATH = ARTIFACTS_DIR / "vectorizer_vec.joblib"
+VECTORS_VEC_PATH     = ARTIFACTS_DIR / "vectors_vec.npz"
 
-VECTORIZER_PATH = ARTIFACTS_DIR / "tfidf_vectorizer.joblib"
-VECTORS_PATH = ARTIFACTS_DIR / "job_vectors.npz"
-META_PATH = ARTIFACTS_DIR / "row_meta.parquet"
+VECTORIZER_KW_PATH = ARTIFACTS_DIR / "vectorizer_kw.joblib"
+VECTORS_KW_PATH     = ARTIFACTS_DIR / "vectors_kw.npz"
+
+META_PATH = ARTIFACTS_DIR / "meta.parquet"
 
 # Index design
 # full_text를 만들 때 사용할 컬럼 목록
@@ -23,3 +24,4 @@ TEXT_COLS = [
 
 # Search params
 TOP_K = 10
+CANDIDATE_K = 2000

@@ -4,29 +4,46 @@ from joblib import dump
 from scipy import sparse
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-from config import CSV_PATH, ARTIFACTS_DIR, VECTORIZER_PATH, VECTORS_PATH, META_PATH, TEXT_COLS
+from config import (
+    CSV_PATH, ARTIFACTS_DIR,
+    META_PATH, TEXT_COLS,
+    VECTORIZER_VEC_PATH, VECTORS_VEC_PATH,
+    VECTORIZER_KW_PATH,  VECTORS_KW_PATH,
+)
 from utils import safe_read_csv, build_full_text
 
 def main():
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
     df = safe_read_csv(CSV_PATH)
-    df["full_text"] = build_full_text(df, TEXT_COLS)
+    df["full_text"] = build_full_text(df, TEXT_COLS).fillna("")
 
-    # TF-IDF: 한국어 형태소 없이도 시작하기 좋은 char n-gram
-    vectorizer = TfidfVectorizer(
+    texts = df["full_text"].values
+
+    # (2차) 벡터 인덱스: char n-gram (기존 v0.1)
+    vectorizer_vec = TfidfVectorizer(
         analyzer="char_wb",
         ngram_range=(2, 5),
         min_df=2,
     )
+    X_vec = vectorizer_vec.fit_transform(texts)
 
-    X = vectorizer.fit_transform(df["full_text"].values)
+    # (1차) 키워드 인덱스: word n-gram
+    vectorizer_kw = TfidfVectorizer(
+        analyzer="word",
+        ngram_range=(1, 2),
+        min_df=2,
+        token_pattern=r"(?u)\b\w+\b",  # 기본보다 넓게
+    )
+    X_kw = vectorizer_kw.fit_transform(texts)
 
-    # 저장(인덱스 결과물)
-    dump(vectorizer, VECTORIZER_PATH)
-    sparse.save_npz(VECTORS_PATH, X)
+    # 저장
+    dump(vectorizer_vec, VECTORIZER_VEC_PATH)
+    sparse.save_npz(VECTORS_VEC_PATH, X_vec)
 
-    # 검색 결과 출력용 메타만 따로 저장 (없으면 빈 값 처리)
+    dump(vectorizer_kw, VECTORIZER_KW_PATH)
+    sparse.save_npz(VECTORS_KW_PATH, X_kw)
+
     meta_cols = []
     for c in ["posting_id", "job_title", "experience_Level", "location", "posting_period", "url"]:
         if c in df.columns:
@@ -40,10 +57,12 @@ def main():
 
     meta.to_parquet(META_PATH, index=False)
 
-    print("[OK] Index built.")
-    print(f"- Vectorizer: {VECTORIZER_PATH}")
-    print(f"- Vectors:    {VECTORS_PATH}  (shape={X.shape})")
-    print(f"- Meta:       {META_PATH}  (rows={len(meta)})")
+    print("[OK] Hybrid index built.")
+    print(f"- KW Vectorizer: {VECTORIZER_KW_PATH}")
+    print(f"- KW Vectors:    {VECTORS_KW_PATH}  (shape={X_kw.shape})")
+    print(f"- Vec Vectorizer:{VECTORIZER_VEC_PATH}")
+    print(f"- Vec Vectors:   {VECTORS_VEC_PATH} (shape={X_vec.shape})")
+    print(f"- Meta:          {META_PATH}  (rows={len(meta)})")
 
 if __name__ == "__main__":
     main()
