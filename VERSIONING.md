@@ -1,7 +1,24 @@
 # Version History
 
-## v0.2.2 — Score Fusion 
+---
+### Final Hybrid Config
 
+현재 평가셋 기준 hybrid TF-IDF retrieval에서 다음 설정이 가장 안정적인 성능을 보였다:
+
+- candidate_k = 500
+- score fusion alpha = 0.8
+
+## v0.2.1 + v0.2.2 - Candidate-K Sweep (alpha=0.8)
+
+| candidate_k | P@10 | MRR@10 | nDCG@10 |
+|------------|------|--------|--------|
+| 500        | 0.7100 | 0.7250 | 0.6151 |
+| 1000       | 0.6800 | 0.7283 | 0.5852 |
+
+candidate_k를 1000으로 증가시키면 후보군 노이즈가 증가하며 랭킹 품질(nDCG)과 precision이 하락하였다.
+현재 평가셋 기준으로 candidate_k=500이 가장 좋은 trade-off를 보임.
+
+## v0.2.2 — Score Fusion 
 
 ### Change
 - Hybrid ranking에 score fusion 적용
