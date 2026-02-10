@@ -24,4 +24,4 @@ TEXT_COLS = [
 
 # Search params
 TOP_K = 10
-CANDIDATE_K = 2000
+CANDIDATE_K = 500

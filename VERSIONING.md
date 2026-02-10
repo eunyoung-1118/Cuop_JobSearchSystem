@@ -1,5 +1,18 @@
 # Version History
 
+## v0.2.1 — Candidate Filtering
+
+### Change
+- CANDIDATE_K: 2000 → 500
+
+### Metrics:
+- P@10   : 0.7100
+- MRR@10 : 0.7367
+- nDCG@10: 0.5969
+
+Precision은 유지/소폭 상승했으나 nDCG 감소하였다. 후보 축소로 일부 high relevance 문서들의 순위가 하락한 것으로 보인다.
+
+
 ## v0.2 — Hybrid TF-IDF Search System
 
 ### Features
