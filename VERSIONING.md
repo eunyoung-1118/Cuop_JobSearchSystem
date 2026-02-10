@@ -1,5 +1,23 @@
 # Version History
 
+## v0.2.2 — Score Fusion 
+
+
+### Change
+- Hybrid ranking에 score fusion 적용
+- final score = alpha * char + (1-alpha) * word
+
+### Metrics
+| alpha | P@10 | MRR@10 | nDCG@10 |
+|------|------|--------|--------|
+| 0.7 | 0.6700 | 0.7283 | 0.5870 |
+| 0.8 | 0.7100 | 0.7250 | 0.6151 |
+| 0.9 | 0.7000 | 0.7333 | 0.5942 |
+
+alpha=0.8에서 P@10과 nDCG가 가장 높은 값을 보이며,
+현재 hybrid TF-IDF 설정에서 가장 균형 잡힌 fusion weight로 판단됨.
+
+
 ## v0.2.1 — Candidate Filtering
 
 ### Change
