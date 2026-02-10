@@ -25,3 +25,6 @@ TEXT_COLS = [
 # Search params
 TOP_K = 10
 CANDIDATE_K = 500
+
+# char 가중치
+ALPHA = 0.8

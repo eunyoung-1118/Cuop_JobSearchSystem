@@ -8,6 +8,7 @@ from config import (
     VECTORIZER_VEC_PATH, VECTORS_VEC_PATH,
     VECTORIZER_KW_PATH,  VECTORS_KW_PATH,
     CANDIDATE_K,
+    ALPHA,
 )
 from utils import normalize_text
 
@@ -59,25 +60,33 @@ def main():
 
         # 1) keyword 후보 축소 (word TF-IDF)
         q_kw = vectorizer_kw.transform([qn])
-        kw_scores = cosine_scores(q_kw, X_kw)
-        cand_idx = topk_indices_from_scores(kw_scores, CANDIDATE_K)
+        kw_scores_all = cosine_scores(q_kw, X_kw)              # (N,)
+        cand_idx = topk_indices_from_scores(kw_scores_all, CANDIDATE_K)
 
         if cand_idx.size == 0:
             print("후보가 없습니다.\n")
             continue
 
-        # 2) vector 재랭킹 (char TF-IDF)
+        kw_scores_cand = kw_scores_all[cand_idx]               # (C,)
+
+        # 2) vector 재랭킹 (char TF-IDF) - cand subset만
         q_vec = vectorizer_vec.transform([qn])
         X_cand = X_vec[cand_idx]
-        vec_scores = cosine_scores(q_vec, X_cand)
+        vec_scores = cosine_scores(q_vec, X_cand)              # (C,)
 
-        # 최종 top_k
-        top_local = topk_indices_from_scores(vec_scores, TOP_K)
+        # 3) score fusion (final score로 랭킹)
+        alpha = float(ALPHA)
+        fusion_scores = alpha * vec_scores + (1.0 - alpha) * kw_scores_cand
+
+        # 최종 top_k: fusion_scores 기준
+        top_local = topk_indices_from_scores(fusion_scores, TOP_K)
         top_idx = cand_idx[top_local]
 
         print("\n=== TOP {} (hybrid) ===".format(TOP_K))
         for rank, idx in enumerate(top_idx, start=1):
-            score = float(vec_scores[top_local[rank-1]])  # 2차 점수
+            fscore = float(fusion_scores[top_local[rank-1]])
+            cscore = float(vec_scores[top_local[rank-1]])
+            wscore = float(kw_scores_cand[top_local[rank-1]])
 
             row = meta.iloc[idx].to_dict() if idx < len(meta) else {"row_index": int(idx)}
             title = row.get("job_title", "")
@@ -87,7 +96,8 @@ def main():
             period = row.get("posting_period", "")
             url = row.get("url", "")
 
-            print(f"{rank:2d}. ({score:.4f}) {title} | {pid} | {exp} | {loc} | {period}")
+            print(f"{rank:2d}. (final={fscore:.4f}, char={cscore:.4f}, word={wscore:.4f}) "
+                    f"{title} | {pid} | {exp} | {loc} | {period}")
             if isinstance(url, str) and url.strip():
                 print(f"    {url}")
         print()

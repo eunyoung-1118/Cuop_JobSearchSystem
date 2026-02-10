@@ -16,6 +16,7 @@ from config import (
     VECTORIZER_VEC_PATH, VECTORS_VEC_PATH,
     VECTORIZER_KW_PATH,  VECTORS_KW_PATH,
     CANDIDATE_K,
+    ALPHA,
 )
 from utils import normalize_text, safe_read_csv
 
@@ -129,9 +130,14 @@ def hybrid_retrieve_indices(
     X_cand = X_vec[cand_idx]
     vec_scores = cosine_scores(q_vec, X_cand)
 
-    top_local = topk_indices_from_scores(vec_scores, top_n)
+    # fusion score
+    kw_scores_cand = kw_scores[cand_idx]
+    alpha = float(ALPHA)
+    fusion_scores = alpha * vec_scores + (1.0 - alpha) * kw_scores_cand
+
+    top_local = topk_indices_from_scores(fusion_scores, top_n)
     top_idx = cand_idx[top_local]
-    top_scores = vec_scores[top_local]
+    top_scores = fusion_scores[top_local]
     return top_idx, top_scores
 
 
