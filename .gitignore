@@ -18,8 +18,9 @@ artifacts/
 # data (크롤링 데이터)
 data/
 
-# eval
-eval/eval_dataset.csv 
+# eval (라벨링 데이터)
+eval/qrels.csv
+eval/run.csv
 
 # OS
 .DS_Store

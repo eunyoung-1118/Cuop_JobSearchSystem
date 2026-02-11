@@ -1,5 +1,7 @@
 import re
 import pandas as pd
+from kiwipiepy import Kiwi
+kiwi = Kiwi()
 
 # csv 읽기
 def safe_read_csv(path):
@@ -30,3 +32,19 @@ def build_full_text(df: pd.DataFrame, text_cols: list[str]) -> pd.Series:
         return " ".join([p for p in parts if p])
 
     return temp.apply(lambda r: row_to_text(r), axis=1)
+
+
+STOP_POS = {"JKS","JKC","JKG","JKO","JKB","JKV","JKQ","JX","JC"}  # 조사 (약어 표기)
+STOPWORDS = {"그리고","또한","하지만","매우","정말"}
+
+def kiwi_tokenize(text):
+    tokens = []
+    for token, pos, _, _ in kiwi.analyze(text)[0][0]:
+        if pos in STOP_POS:  # 조사 제거
+            continue
+        if token in STOPWORDS:
+            continue
+        if len(token) <= 1:
+            continue
+        tokens.append(token.lower())
+    return tokens

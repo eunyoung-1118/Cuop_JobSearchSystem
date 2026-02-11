@@ -49,15 +49,21 @@ python src/search.py
 
 ## Evaluation
 
-### 1. 자동 relevance labeling dataset 생성
+### 1. 자동 relevance labeling dataset 생성 (1회 / 쿼리 변경 시, 데이터 업데이트 시)
 ```
 python src/auto_label.py
 ```
-- retrieval 결과 기반 Top-N 공고 추출
 - OpenAI API를 이용해 relevance(0/1/2) 자동 라벨링
-- eval/eval_dataset.csv 생성
+- eval/qrels.csv 생성
 
-### 2. 검색 성능 평가
+### 2. 검색 결과 생성
+```
+python src/build_run.py
+```
+- 현재 검색 모델로 Top-K 추출
+- eval/run.csv 생성
+
+### 3. 검색 성능 평가
 ```
 python src/evaluate.py
 ```
@@ -67,5 +73,5 @@ python src/evaluate.py
 - nDCG@10
 
 ## Current Status
-- Version: v0.2 — Hybrid TF-IDF Search
-- Evaluation: 진행 완료
+- Version: v0.3 — morph-tokenizer
+- Evaluation: 진행 예정

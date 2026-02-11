@@ -7,3 +7,4 @@ joblib
 pyarrow
 python-dotenv
 openai
+kiwipiepy

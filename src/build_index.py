@@ -10,7 +10,7 @@ from config import (
     VECTORIZER_VEC_PATH, VECTORS_VEC_PATH,
     VECTORIZER_KW_PATH,  VECTORS_KW_PATH,
 )
-from utils import safe_read_csv, build_full_text
+from utils import safe_read_csv, build_full_text, kiwi_tokenize
 
 def main():
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -30,10 +30,11 @@ def main():
 
     # (1차) 키워드 인덱스: word n-gram
     vectorizer_kw = TfidfVectorizer(
-        analyzer="word",
+        tokenizer=kiwi_tokenize,
+        token_pattern=None,
+        lowercase=False,
         ngram_range=(1, 2),
         min_df=2,
-        token_pattern=r"(?u)\b\w+\b",  # 기본보다 넓게
     )
     X_kw = vectorizer_kw.fit_transform(texts)
 

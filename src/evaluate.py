@@ -1,9 +1,7 @@
+import argparse
 import math
 import pandas as pd
-
-EVAL_DATASET_PATH = "eval/eval_dataset.csv"
-K = 10
-
+from config import RUN_PATH, QRELS_PATH
 
 def dcg(rels):
     return sum((2**r - 1) / math.log2(i + 2) for i, r in enumerate(rels))
@@ -29,27 +27,65 @@ def mrr_at_k(rels, k):
 
 
 def main():
-    df = pd.read_csv(EVAL_DATASET_PATH)
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--run", default=str(RUN_PATH),
+                    help="eval/run.csv (default from config)")
+    ap.add_argument("--qrels", default=str(QRELS_PATH),
+                    help="eval/qrels.csv (default from config)")
+    ap.add_argument("--k", type=int, default=10)
+    ap.add_argument("--ignore_unjudged", action="store_true",
+                    help="qrels에 없는 문서는 평가에서 제외 (기본은 0으로 처리)")
+    args = ap.parse_args()
 
-    required = {"qid", "rank", "relevance"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"Missing columns: {sorted(missing)}")
+    run = pd.read_csv(args.run)
+    qrels = pd.read_csv(args.qrels)
 
-    if df["relevance"].isna().any():
-        raise ValueError("relevance에 NaN이 있습니다. auto_label이 정상 완료됐는지 확인하세요.")
+    # 필수 컬럼 체크
+    required_run = {"qid", "posting_id", "rank"}
+    required_qrels = {"qid", "posting_id", "relevance"}
 
-    df["relevance"] = df["relevance"].astype(int)
-    df = df.sort_values(["qid", "rank"])
+    missing_run = required_run - set(run.columns)
+    missing_qrels = required_qrels - set(qrels.columns)
 
+    if missing_run:
+        raise ValueError(f"run missing columns: {sorted(missing_run)}")
+    if missing_qrels:
+        raise ValueError(f"qrels missing columns: {sorted(missing_qrels)}")
+
+    # 타입 정리
+    run["qid"] = run["qid"].astype(str)
+    run["posting_id"] = run["posting_id"].astype(str)
+    run["rank"] = run["rank"].astype(int)
+
+    qrels["qid"] = qrels["qid"].astype(str)
+    qrels["posting_id"] = qrels["posting_id"].astype(str)
+    qrels["relevance"] = qrels["relevance"].astype(int)
+
+    # join
+    merged = run.merge(qrels, on=["qid", "posting_id"], how="left")
+
+    if args.ignore_unjudged:
+        # qrels 없는 문서는 제외
+        before = len(merged)
+        merged = merged.dropna(subset=["relevance"]).copy()
+        after = len(merged)
+        print(f"[INFO] ignore_unjudged enabled: dropped {before - after} rows")
+    else:
+        # qrels 없는 문서는 0점 처리
+        merged["relevance"] = merged["relevance"].fillna(0).astype(int)
+
+    # rank 순 정렬
+    merged = merged.sort_values(["qid", "rank"])
+
+    # metrics
     metrics = []
-    for qid, g in df.groupby("qid"):
+    for qid, g in merged.groupby("qid"):
         rels = g["relevance"].tolist()
         metrics.append({
             "qid": qid,
-            "P@10": precision_at_k(rels, K),
-            "MRR@10": mrr_at_k(rels, K),
-            "nDCG@10": ndcg_at_k(rels, K),
+            "P@10": precision_at_k(rels, args.k),
+            "MRR@10": mrr_at_k(rels, args.k),
+            "nDCG@10": ndcg_at_k(rels, args.k),
         })
 
     mdf = pd.DataFrame(metrics)
@@ -62,8 +98,11 @@ def main():
     print(f"MRR@10 : {mdf['MRR@10'].mean():.4f}")
     print(f"nDCG@10: {mdf['nDCG@10'].mean():.4f}")
 
+    # coverage 정보(참고)
+    judged = run.merge(qrels, on=["qid", "posting_id"], how="left")["relevance"].notna().mean()
+    print(f"\n[INFO] judged coverage in run: {judged*100:.2f}%")
+    print(f"[INFO] run rows: {len(run)}, qrels rows: {len(qrels)}")
+
 
 if __name__ == "__main__":
     main()
-
-
