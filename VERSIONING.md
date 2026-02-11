@@ -1,5 +1,19 @@
 # Version History
 
+## v0.3 — morph-tokenizer
+
+### Features
+- 형태소 기반 keyword index 도입 (Kiwi tokenizer)
+- 조사 POS 제거
+- 사용자 stopwords 제거
+
+### Metrics:
+- P@10   : 0.6800
+- MRR@10 : 0.7417
+- nDCG@10: 0.7409
+
+첫 추천 품질(MRR)이 개선되었고, ranking quality(nDCG)가 크게 개선되었다.
+
 ---
 ### Final Hybrid Config
 

@@ -11,7 +11,8 @@ job-search/
     utils.py
     build_index.py  # 검색 인덱스 생성
     search.py       # 터미널 검색 인터페이스
-    auto_label.py   # 자동 relevance labeling + eval dataset 생성
+    auto_label.py   # 자동 relevance labeling
+    build_run.py    # 검색 결과 생성
     evaluate.py     # retrieval 성능 평가
   data/             # (gitignore) 원본 CSV 위치
   artifacts/        # (gitignore) 인덱스 결과물 저장
@@ -74,4 +75,4 @@ python src/evaluate.py
 
 ## Current Status
 - Version: v0.3 — morph-tokenizer
-- Evaluation: 진행 예정
+- Evaluation: 진행 완료
